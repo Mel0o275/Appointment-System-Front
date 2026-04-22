@@ -1,0 +1,45 @@
+[
+  {
+    "id": "1",
+    "name": "Dr. Sara Ibrahim",
+    "specialization": "Cardiology",
+    "rating": 4.8,
+    "image": "https://i.pravatar.cc/200?img=47"
+  },
+  {
+    "id": "2",
+    "name": "Dr. Omar Hassan",
+    "specialization": "Dermatology",
+    "rating": 4.7,
+    "image": "https://i.pravatar.cc/200?img=12"
+  },
+  {
+    "id": "3",
+    "name": "Dr. Nour Adel",
+    "specialization": "Pediatrics",
+    "rating": 4.9,
+    "image": "https://i.pravatar.cc/200?img=32"
+  },
+  {
+    "id": "4",
+    "name": "Dr. Karim Mostafa",
+    "specialization": "Orthopedics",
+    "rating": 4.6,
+    "image": "https://i.pravatar.cc/200?img=8"
+  },
+  {
+    "id": "5",
+    "name": "Dr. Lina Mahmoud",
+    "specialization": "Neurology",
+    "rating": 4.7,
+    "image": "https://i.pravatar.cc/200?img=5"
+  },
+  {
+    "id": "6",
+    "name": "Dr. Youssef Ayman",
+    "specialization": "ENT",
+    "rating": 4.5,
+    "image": "https://i.pravatar.cc/200?img=22"
+  }
+]
+
