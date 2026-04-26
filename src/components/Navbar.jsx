@@ -5,6 +5,7 @@ import Button from './Button.jsx'
 import { classNames } from '../utils/classNames.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
+import axios from 'axios'
 
 const navClass = ({ isActive }) =>
   classNames(
@@ -26,6 +27,29 @@ export default function Navbar() {
         : role === 'patient'
           ? '/patient'
           : '/dashboard'
+
+const handleLogout = async () => {
+  try {
+    const res = await axios.post(
+      'http://localhost:8082/auth/logout',
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      }
+    );
+
+    if (res.data.success) {
+      localStorage.removeItem('token')
+      logout()
+      navigate('/')
+    }
+
+  } catch (err) {
+    console.error(err)
+  }
+}
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 glass-surface-strong glass-hover border-b border-white/40">
@@ -71,7 +95,7 @@ export default function Navbar() {
               <Button
                 variant="ghost"
                 onClick={async () => {
-                  await logout()
+                  await handleLogout()
                   toast.success('Logged out', 'See you soon.')
                   navigate('/')
                 }}
@@ -148,7 +172,7 @@ export default function Navbar() {
                   variant="ghost"
                   onClick={async () => {
                     setOpen(false)
-                    await logout()
+                    await handleLogout()
                     toast.success('Logged out', 'See you soon.')
                     navigate('/')
                   }}

@@ -1,69 +1,44 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Container from '../components/Container.jsx'
 import Spinner from '../components/Spinner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import Button from '../components/Button.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { AdminAPI } from '../api/admin'
+import axios from 'axios'
 
 export default function AdminDashboard() {
   const toast = useToast()
-  const [loading, setLoading] = useState(true)
-  const [users, setUsers] = useState([])
-  const [q, setQ] = useState('')
+  const [pendingDoctors, setPendingDoctors] = useState([])
+  const [allUsers, setAllUsers] = useState([])
 
   async function refresh() {
     const data = await AdminAPI.listUsers()
     setUsers(data)
   }
 
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      try {
-        const data = await AdminAPI.listUsers()
-        if (alive) setUsers(data)
-      } finally {
-        if (alive) setLoading(false)
-      }
-    })()
-    return () => {
-      alive = false
-    }
-  }, [])
-
-  // 🔍 search
-  const filtered = useMemo(() => {
-    const term = q.trim().toLowerCase()
-    if (!term) return users
-    return users.filter((u) =>
-      `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(term)
-    )
-  }, [q, users])
-
-  // 👨‍⚕️ pending doctors
-  const pendingDoctors = useMemo(() => {
-    return users.filter((u) => u.role === 'doctor' && u.status === 'pending')
-  }, [users])
-
   // 🔒 block / unblock
   async function toggleBlock(u) {
-    await AdminAPI.blockUser(u.id, !u.blocked)
-    await refresh()
-    toast.success('Updated', u.blocked ? 'User unblocked.' : 'User blocked.')
+    await blockUser(localStorage.getItem('token'), u.id)
+    await getAllUsers(localStorage.getItem('token'))
+    // await AdminAPI.blockUser(u.id, !u.blocked)
+    // await refresh()
+    toast.success('Updated', u.freeze ? 'User unblocked.' : 'User blocked.')
   }
 
   // ❌ delete
   async function del(u) {
-    await AdminAPI.deleteUser(u.id)
-    await refresh()
+    await deleteUser(localStorage.getItem('token'), u.id)
+    await getAllUsers(localStorage.getItem('token'))
     toast.info('Deleted', 'User removed.')
   }
 
   // ✅ approve doctor
   async function approveDoctor(u) {
-    await AdminAPI.approveDoctor(u.id)
-    await refresh()
+    await verifyDoctor(localStorage.getItem('token'), u.id)
+    // await AdminAPI.approveDoctor(u.id)
+    await getAllUsers(localStorage.getItem('token'))
+    // await refresh()
     toast.success('Approved', 'Doctor approved successfully.')
   }
 
@@ -73,6 +48,104 @@ export default function AdminDashboard() {
     await refresh()
     toast.error('Rejected', 'Doctor rejected.')
   }
+
+  const getPendingDoctors = async (adminToken) => {
+    const res = await axios.get(
+      'http://localhost:8082/api/admin/doctors/pending',
+      {
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      }
+    );
+
+    return res.data;
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await getPendingDoctors(localStorage.getItem('token'));
+        console.log(data);
+        setPendingDoctors(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+
+    const getAllUsers = async (adminToken) => {
+    const res = await axios.get(
+      'http://localhost:8082/api/admin/users',
+      {
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      }
+    );
+
+    return res.data;
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await getAllUsers(localStorage.getItem('token'));
+        console.log(data);
+        setAllUsers(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const deleteUser = async (adminToken, userId) => {
+    const res = await axios.delete(
+      `http://localhost:8082/api/admin/users/${userId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      }
+    );
+
+    return res.data;
+  }
+
+    const blockUser = async (adminToken, userId) => {
+    const res = await axios.put(
+      `http://localhost:8082/api/admin/users/${userId}/freeze`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      }
+    );
+
+    return res.data;
+  }
+
+    const verifyDoctor = async (adminToken, doctorId) => {
+    const res = await axios.put(
+      `http://localhost:8082/api/admin/doctors/${doctorId}/verify`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${adminToken}`
+        }
+      }
+    );
+
+    return res.data;
+  }
+  
+
 
   return (
     <Container className="py-10 animate-[fadeIn_260ms_ease-out]">
@@ -85,7 +158,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        
+
         {/* 👥 USERS */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-md">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -95,25 +168,11 @@ export default function AdminDashboard() {
                 Block/unblock or delete users.
               </p>
             </div>
-
-            <div className="w-full md:w-[320px]">
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search..."
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30"
-              />
-            </div>
           </div>
 
           <div className="mt-5">
-            {loading ? (
-              <Spinner label="Loading users..." />
-            ) : filtered.length === 0 ? (
-              <EmptyState title="No users" />
-            ) : (
               <div className="space-y-3">
-                {filtered.map((u) => (
+                {allUsers.map((u) => (
                   <div
                     key={u.id}
                     className="rounded-2xl border border-slate-200 p-4 shadow-sm"
@@ -121,17 +180,16 @@ export default function AdminDashboard() {
                     <div className="flex justify-between items-center">
                       <div>
                         <div className="font-semibold">
-                          {u.name}
+                          {u.username}
                           <span className="ml-2 text-xs text-gray-500">
                             ({u.role})
                           </span>
-                          {u.blocked && (
+                          {u.frozen && (
                             <span className="ml-2 text-xs text-red-500">
                               blocked
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-500">{u.email}</div>
                       </div>
 
                       <div className="flex gap-2">
@@ -147,7 +205,6 @@ export default function AdminDashboard() {
                   </div>
                 ))}
               </div>
-            )}
           </div>
         </div>
 
@@ -166,19 +223,25 @@ export default function AdminDashboard() {
             ) : (
               <div className="space-y-3">
                 {pendingDoctors.map((u) => (
-                  <div
-                    key={u.id}
-                    className="rounded-2xl border border-slate-200 p-4 shadow-sm"
-                  >
+                  <div key={u.id} className="rounded-2xl border border-slate-200 p-4 shadow-sm">
                     <div className="flex justify-between items-center">
                       <div>
                         <div className="font-semibold">
-                          {u.name}
+                          {u.username}
                           <span className="ml-2 text-yellow-500 text-xs">
                             pending
                           </span>
                         </div>
-                        <div className="text-xs text-gray-500">{u.email}</div>
+
+                        <div className="text-xs text-gray-500">
+                          {u.email}
+                        </div>
+
+                        {u.specialization && (
+                          <div className="text-xs text-gray-400">
+                            {u.specialization}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex gap-2">

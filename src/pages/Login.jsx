@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import axios from 'axios'
 import { useAuth } from '../context/AuthContext.jsx'
+import { jwtDecode } from 'jwt-decode'
 
 export default function Login() {
 
@@ -34,15 +35,30 @@ export default function Login() {
   const onsubmit = async (data) => {
     console.log(data)
     try {
-      const res = await axios.post('http://localhost:8080/auth/login', data)
+      const res = await axios.post('http://localhost:8082/auth/login', data)
       console.log(res.data)
+      const token = res.data.data;
 
-      if (res.data.message === "login success") {
+      const decoded = jwtDecode(token);
+
+      console.log(decoded.role);
+
+      if (res.data.message === "login success" && decoded.role === "Patient") {
         toast.success("Login successful", "Welcome back")
         console.log(res.data.data);
-        login(res.data.data); 
+        login(res.data.data);
         navigate('/')
-      } else {
+      } else if (res.data.message === "login success" && decoded.role === "Doctor") {
+        toast.success("Login successful", "Welcome back")
+        console.log(res.data.data);
+        login(res.data.data);
+        navigate('/doctor')
+      } else if (res.data.message === "login success" && decoded.role === "Admin") {
+        toast.success("Login successful", "Welcome back")
+        login(res.data.data);
+        navigate('/admin')
+      }
+      else {
         toast.error("Login failed", res.data.message)
       }
 

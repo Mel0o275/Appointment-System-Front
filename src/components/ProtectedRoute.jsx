@@ -1,28 +1,20 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import Spinner from './Spinner.jsx'
-import Container from './Container.jsx'
-import { useAuth } from '../context/AuthContext.jsx'
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function ProtectedRoute({ allowedRoles }) {
-  const { loading, isAuthenticated, role } = useAuth()
-  const location = useLocation()
+  const { isAuthenticated, role, loading } = useAuth();
 
   if (loading) {
-    return (
-      <Container className="py-10">
-        <Spinner label="Checking session..." />
-      </Container>
-    )
+    return <div className="p-10 text-center">Loading...</div>;
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+    return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles?.length && !allowedRoles.includes(role)) {
-    return <Navigate to="/" replace />
+  if (!allowedRoles.includes(role)) {
+    return <Navigate to="/" replace />;
   }
 
-  return <Outlet />
+  return <Outlet />;
 }
-

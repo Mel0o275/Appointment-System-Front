@@ -7,17 +7,31 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller } from 'react-hook-form'
 import axios from 'axios'
 import { useToast } from '../context/ToastContext.jsx'
+import { useState } from 'react'
 
 export default function Register() {
 
   const navigate = useNavigate();
+  const [certificates, setCertificates] = useState([])
+
 
   const schema = z.object({
     username: z.string().min(2).max(100),
     role: z.enum(['Patient', 'Doctor']),
     password: z.string().min(6).max(100),
     email: z.string().email(),
-    phone: z.string().min(10).max(20).regex(/^\+?(201|01|00201)[0-9]{9}$/, 'Invalid phone number format')
+    phone: z.string().min(10).max(20).regex(/^\+?(201|01|00201)[0-9]{9}$/, 'Invalid phone number format'),
+    certificates: z.array(z.any()).optional()
+  }).superRefine((data, ctx) => {
+    if (data.role === "Doctor") {
+      if (!data.certificates || data.certificates.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Medical certificates are required for doctors",
+          path: ["certificates"]
+        })
+      }
+    }
   })
 
   const form = useForm({
@@ -31,27 +45,62 @@ export default function Register() {
     resolver: zodResolver(schema)
   })
 
-  const { handleSubmit, formState: { errors } } = form;
+  const { handleSubmit, formState: { errors }, watch } = form;
+  const role = watch("role")
 
   const toast = useToast();
 
-  const onsubmit = async (data) => {
-    console.log(data);
-    try {
-      const res = await axios.post('http://localhost:8080/auth/signup', data);
-      console.log(res);
-      if (res.data.message == "signup success") {
-        toast.success("Account created successfully");
-        navigate('/login');
-      } else {
-        console.log(res.data.message);
-        toast.error(res.data.message);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+const onsubmit = async (data) => {
+  try {
+    const formData = new FormData();
 
+    formData.append(
+      "user",
+      new Blob(
+        [JSON.stringify({
+          username: data.username,
+          role: data.role,
+          password: data.password,
+          phone: data.phone,
+          email: data.email
+        })],
+        { type: "application/json" }
+      )
+    );
+
+    if (data.certificates) {
+      for (let i = 0; i < data.certificates.length; i++) {
+        formData.append("files", data.certificates[i]);
+      }
+    }
+
+    const res = await axios.post(
+      "http://localhost:8082/auth/signup",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    console.log(res.data.message);
+    
+
+    if (res.data.message === "signup success" && res.data.data.role === "Patient") {
+      toast.success("Account created successfully");
+      navigate("/login");
+    } else if (res.data.message === "signup success" && res.data.data.role === "Doctor") {
+      toast.success("Account created successfully. Please wait for admin approval and watch your email.");
+      navigate("/login");
+    } else {
+      toast.error(res.data.message);
+    }
+
+  } catch (err) {
+    console.error(err);
+  }
+};
 
 
   return (
@@ -169,6 +218,39 @@ export default function Register() {
                 />
                 {errors.password && <p className="text-red-500 text-sm">{errors.password.message}</p>}
               </div>
+
+              {/* DOCTOR ONLY UI (UNCHANGED DESIGN) */}
+              {role === 'Doctor' && (
+                <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+
+                  <label className="text-sm font-medium text-slate-900">
+                    Medical Certificates
+                  </label>
+
+                  <p className="text-xs text-slate-500 mt-1">
+                    Upload your licenses and certificates for verification
+                  </p>
+
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(e) =>
+                      setCertificates(Array.from(e.target.files))
+                    }
+                    className="mt-3 w-full text-sm"
+                  />
+
+                  {certificates.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {certificates.map((file, i) => (
+                        <div key={i} className="text-sm text-slate-600 flex items-center gap-2">
+                          📄 {file.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
 
