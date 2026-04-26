@@ -21,17 +21,6 @@ export default function Register() {
     password: z.string().min(6).max(100),
     email: z.string().email(),
     phone: z.string().min(10).max(20).regex(/^\+?(201|01|00201)[0-9]{9}$/, 'Invalid phone number format'),
-    certificates: z.array(z.any()).optional()
-  }).superRefine((data, ctx) => {
-    if (data.role === "Doctor") {
-      if (!data.certificates || data.certificates.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Medical certificates are required for doctors",
-          path: ["certificates"]
-        })
-      }
-    }
   })
 
   const form = useForm({
@@ -50,57 +39,56 @@ export default function Register() {
 
   const toast = useToast();
 
-const onsubmit = async (data) => {
-  try {
-    const formData = new FormData();
+  const onSubmit = async (data) => {
+    console.log("SUBMIT WORKS", data);
 
-    formData.append(
-      "user",
-      new Blob(
-        [JSON.stringify({
-          username: data.username,
-          role: data.role,
-          password: data.password,
-          phone: data.phone,
-          email: data.email
-        })],
-        { type: "application/json" }
-      )
-    );
+    try {
+      const formData = new FormData();
 
-    if (data.certificates) {
-      for (let i = 0; i < data.certificates.length; i++) {
-        formData.append("files", data.certificates[i]);
+      formData.append(
+        "user",
+        new Blob(
+          [JSON.stringify({
+            ...data,
+            certificates: undefined
+          })],
+          { type: "application/json" }
+        )
+      );
+
+      if (role === "Doctor" && certificates.length > 0) {
+        certificates.forEach(file => {
+          formData.append("files", file);
+        });
       }
-    }
 
-    const res = await axios.post(
-      "http://localhost:8082/auth/signup",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+      if(role === "Doctor" && certificates.length === 0) {
+        toast.error("Please upload at least one certificate for doctor registration.");
+        return;
       }
-    );
 
-    console.log(res.data.message);
-    
+      const res = await axios.post(
+        "http://localhost:8082/auth/signup",
+        formData
+      );
 
-    if (res.data.message === "signup success" && res.data.data.role === "Patient") {
-      toast.success("Account created successfully");
-      navigate("/login");
-    } else if (res.data.message === "signup success" && res.data.data.role === "Doctor") {
-      toast.success("Account created successfully. Please wait for admin approval and watch your email.");
-      navigate("/login");
-    } else {
-      toast.error(res.data.message);
+      console.log(res.data);
+      if (role === "Doctor") {
+        toast.info("Account created. Awaiting admin approval.");
+        navigate("/login");
+
+      } else {
+        toast.success("Account created successfully");
+        navigate("/login");
+      }
+
+
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Error while signing up");
     }
-
-  } catch (err) {
-    console.error(err);
-  }
-};
+  };
 
 
   return (
@@ -120,7 +108,9 @@ const onsubmit = async (data) => {
           </div>
 
           <form
-            onSubmit={handleSubmit(onsubmit)}
+            onSubmit={handleSubmit(onSubmit, (err) => {
+              console.log("FORM ERRORS:", err);
+            })}
             className="glass-surface-strong rounded-3xl p-8"
           >
             <h2 className="text-lg font-semibold text-slate-900">Register</h2>
