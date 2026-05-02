@@ -63,28 +63,38 @@ const handleLogout = async () => {
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
-          <NavLink to="/" className={navClass}>
-            Home
-          </NavLink>
-          <NavLink to="/doctors" className={navClass}>
-            Doctors
-          </NavLink>
-          {role === 'patient' ? (
-            <NavLink to="/book" className={navClass}>
-              Book Appointment
-            </NavLink>
-          ) : null}
-          {isAuthenticated ? (
-            <NavLink to={dashboardPath} className={navClass}>
-              Dashboard
-            </NavLink>
-          ) : null}
-          {isAuthenticated ? (
-            <NavLink to="/profile" className={navClass}>
-              Profile
-            </NavLink>
-          ) : null}
-        </nav>
+  <NavLink to="/" className={navClass}>
+    Home
+  </NavLink>
+
+  <NavLink to="/doctors" className={navClass}>
+    Doctors
+  </NavLink>
+
+  {role === 'patient' && (
+    <NavLink to="/book" className={navClass}>
+      Book Appointment
+    </NavLink>
+  )}
+
+  {isAuthenticated && (
+    <NavLink to={dashboardPath} className={navClass}>
+      Dashboard
+    </NavLink>
+  )}
+
+  {role === 'Doctor' && (
+    <NavLink to="/doctor" className={navClass}>
+      Doctor Panel
+    </NavLink>
+  )}
+
+  {isAuthenticated && role !== 'Doctor' && (
+    <NavLink to="/profile" className={navClass}>
+      Profile
+    </NavLink>
+  )}
+</nav>
 
         <div className="hidden items-center gap-2 md:flex">
           {isAuthenticated ? (
