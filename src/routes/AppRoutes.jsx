@@ -10,14 +10,21 @@ import PatientDashboard from "../pages/PatientDashboard.jsx";
 import DoctorDashboard from "../pages/DoctorDashboard.jsx";
 import AdminDashboard from "../pages/AdminDashboard.jsx";
 import ProtectedRoute from "../components/ProtectedRoute.jsx";
+import PublicOnlyRoute from "./PublicOnlyRoute.jsx";
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/doctors" element={<Doctors />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route
+        path="/login"
+        element={
+          <PublicOnlyRoute>
+            <Login />
+          </PublicOnlyRoute>
+        }
+      />      <Route path="/register" element={<Register />} />
 
       {/* PATIENT */}
       <Route element={<ProtectedRoute allowedRoles={["Patient"]} />}>

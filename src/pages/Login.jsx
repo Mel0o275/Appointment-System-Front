@@ -37,8 +37,13 @@ export default function Login() {
     try {
       const res = await axios.post('http://localhost:8082/auth/login', data)
       console.log(res.data.data.token)
-      const token = res.data.data.token;
+      const token = res.data?.data?.token;
       console.log(token);
+
+      if (!res.data.success) {
+      toast.error("Login failed", "Email or password is incorrect")
+      return
+    }
       
 
       const decoded = jwtDecode(token);
@@ -50,19 +55,19 @@ export default function Login() {
         console.log(res.data.data.token);
         login(res.data.data.token);
         localStorage.setItem('id', res.data.data.id)
-        navigate('/')
+        navigate('/', { replace: true })
       } else if (res.data.message === "login success" && decoded.role === "Doctor") {
         toast.success("Login successful", "Welcome back")
         console.log(res.data.data.token);
         localStorage.setItem('id', res.data.data.id)
         login(res.data.data.token);
-        navigate('/doctor')
+        navigate('/doctor', { replace: true })
       } else if (res.data.message === "login success" && decoded.role === "Admin") {
         toast.success("Login successful", "Welcome back")
         login(res.data.data.token);
-        navigate('/admin')
+        navigate('/admin', { replace: true })
       }
-      else {
+      else if(res.data.message === "login failed") {
         toast.error("Login failed", res.data.message)
       }
 

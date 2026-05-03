@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import Container from '../components/Container.jsx'
-import Spinner from '../components/Spinner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import Button from '../components/Button.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { AdminAPI } from '../api/admin'
 import axios from 'axios'
 
 export default function AdminDashboard() {
@@ -26,53 +24,109 @@ export default function AdminDashboard() {
     "GET_AVAILABILITY"
   ]
 
-  // ================= API =================
+  const token = localStorage.getItem("token")
 
-  const getAllUsers = async (token) => {
-    const res = await axios.get(
-      "http://localhost:8082/api/admin/users",
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    return res.data
+  // ================= LOAD =================
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const users = await axios.get(
+          "http://localhost:8082/api/admin/users",
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+
+        const pending = await axios.get(
+          "http://localhost:8082/api/admin/doctors/pending",
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+
+        setAllUsers(users.data)
+        setPendingDoctors(pending.data)
+
+      } catch (err) {
+        console.error(err)
+      }
+    }
+
+    load()
+  }, [])
+
+  // ================= USERS ACTIONS =================
+
+  const toggleBlock = async (u) => {
+    try {
+      if (u.frozen) {
+        await axios.put(
+          `http://localhost:8082/api/admin/users/${u.id}/unfreeze`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      } else {
+        await axios.put(
+          `http://localhost:8082/api/admin/users/${u.id}/freeze`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      }
+
+      setAllUsers(prev =>
+        prev.map(user =>
+          user.id === u.id
+            ? { ...user, frozen: !user.frozen }
+            : user
+        )
+      )
+
+      toast.success("Updated", "User status updated")
+
+    } catch (err) {
+      console.error(err)
+    }
   }
 
-  const getPendingDoctors = async (token) => {
-    const res = await axios.get(
-      "http://localhost:8082/api/admin/doctors/pending",
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    return res.data
+  const del = async (u) => {
+    try {
+      await axios.delete(
+        `http://localhost:8082/api/admin/users/${u.id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+
+      setAllUsers(prev => prev.filter(x => x.id !== u.id))
+
+      toast.info("Deleted", "User removed")
+
+    } catch (err) {
+      console.error(err)
+    }
   }
 
-  const deleteUser = async (token, id) => {
-    await axios.delete(
-      `http://localhost:8082/api/admin/users/${id}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-  }
+  // ================= DOCTOR APPROVAL =================
 
-  const blockUser = async (token, id) => {
-    await axios.put(
-      `http://localhost:8082/api/admin/users/${id}/freeze`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-  }
+  const approveDoctor = async (u, flag) => {
+    try {
+      await axios.put(
+        `http://localhost:8082/api/admin/doctors/${u.id}/verify`,
+        { isAccepted: flag },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
 
-  const unBlockUser = async (token, id) => {
-    await axios.put(
-      `http://localhost:8082/api/admin/users/${id}/unfreeze`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-  }
+      setPendingDoctors(prev =>
+        prev.filter(doc => doc.id !== u.id)
+      )
 
-  const verifyDoctor = async (token, id, flag) => {
-    await axios.put(
-      `http://localhost:8082/api/admin/doctors/${id}/verify`,
-      { isAccepted: flag },
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
+      setAllUsers(prev =>
+        prev.map(user =>
+          user.id === u.id
+            ? { ...user, role: "Doctor" }
+            : user
+        )
+      )
+
+      toast.success("Done", flag ? "Doctor approved" : "Doctor rejected")
+
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   // ================= PERMISSIONS =================
@@ -81,77 +135,64 @@ export default function AdminDashboard() {
     setSelectedUser(user)
 
     try {
-      const token = localStorage.getItem("token")
-
       const res = await axios.get(
         `http://localhost:8082/api/admin/permissions/users/${user.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       )
 
       const perms = res.data?.data || []
 
       setPermissions(perms)
-      setOriginalPermissions(perms)   // 👈 مهم
-
+      setOriginalPermissions(perms)
       setOpenModal(true)
 
     } catch (err) {
       console.error(err)
       setPermissions([])
-      setOriginalPermissions([])
       setOpenModal(true)
     }
   }
 
   const togglePermission = (perm) => {
-    setPermissions((prev) =>
+    setPermissions(prev =>
       prev.includes(perm)
-        ? prev.filter((p) => p !== perm)
+        ? prev.filter(p => p !== perm)
         : [...prev, perm]
     )
   }
 
   const savePermissions = async () => {
-    if (!selectedUser) return
-
-    const token = localStorage.getItem("token")
-
     const toAdd = permissions.filter(p => !originalPermissions.includes(p))
     const toRemove = originalPermissions.filter(p => !permissions.includes(p))
 
     try {
-      // GRANT
       for (const perm of toAdd) {
         await axios.post(
           `http://localhost:8082/api/admin/permissions/users/${selectedUser.id}/grant`,
           { permission: perm },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         )
       }
 
-      // REVOKE
       for (const perm of toRemove) {
         await axios.post(
           `http://localhost:8082/api/admin/permissions/users/${selectedUser.id}/revoke`,
           { permission: perm },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         )
       }
 
-      toast.success("Success", "Permissions updated")
+      // 🔥 update UI instantly
+      setAllUsers(prev =>
+        prev.map(u =>
+          u.id === selectedUser.id
+            ? { ...u, permissions }
+            : u
+        )
+      )
+
       setOpenModal(false)
+      toast.success("Success", "Permissions updated")
 
     } catch (err) {
       console.error(err)
@@ -159,52 +200,7 @@ export default function AdminDashboard() {
     }
   }
 
-  // ================= ACTIONS =================
-
-  const toggleBlock = async (u) => {
-    const token = localStorage.getItem("token")
-
-    if (u.frozen) {
-      await unBlockUser(token, u.id)
-    } else {
-      await blockUser(token, u.id)
-    }
-
-    const data = await getAllUsers(token)
-    setAllUsers(data)
-
-    toast.success("Updated", "User status updated")
-  }
-
-  const del = async (u) => {
-    const token = localStorage.getItem("token")
-
-    await deleteUser(token, u.id)
-    const data = await getAllUsers(token)
-    setAllUsers(data)
-
-    toast.info("Deleted", "User removed")
-  }
-
-  const approveDoctor = async (u, flag) => {
-    await verifyDoctor(localStorage.getItem("token"), u.id, flag)
-
-    const data = await getAllUsers(localStorage.getItem("token"))
-    setAllUsers(data)
-
-    toast.success("Done", flag ? "Doctor approved" : "Doctor rejected")
-  }
-
-  // ================= LOAD =================
-
-  useEffect(() => {
-    const token = localStorage.getItem("token")
-
-    getAllUsers(token).then(setAllUsers)
-    getPendingDoctors(token).then(setPendingDoctors)
-  }, [])
-
-  // ================= UI (UNCHANGED) =================
+  // ================= UI =================
 
   return (
     <Container className="py-10 animate-[fadeIn_260ms_ease-out]">
