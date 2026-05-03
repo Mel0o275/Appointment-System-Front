@@ -16,7 +16,10 @@ export default function Doctors() {
   const [duration, setDuration] = useState(30)
 
   const [patients, setPatients] = useState([])
-const [loadingPatients, setLoadingPatients] = useState(true)
+  const [loadingPatients, setLoadingPatients] = useState(true)
+
+  const [editingBio, setEditingBio] = useState(false)
+  const [newBio, setNewBio] = useState("")
 
   const DAYS = [
     "MONDAY",
@@ -28,12 +31,57 @@ const [loadingPatients, setLoadingPatients] = useState(true)
     "SUNDAY"
   ]
 
+  const canUpdateBio = doctor?.user?.permissions?.includes("UPDATE_BIO")
+
   const toggleDay = (day) => {
     setDays((prev) =>
       prev.includes(day)
         ? prev.filter((d) => d !== day)
         : [...prev, day]
     )
+  }
+
+  const handleEditClick = () => {
+    setNewBio(doctor.bio || "")
+    setEditingBio(true)
+  }
+
+  const updateBio = async () => {
+    try {
+      const token = localStorage.getItem("token")
+
+      const res = await axios.put(
+        `http://localhost:8082/api/doctors/${doctor.id}/bio`,
+        {
+          bio: newBio
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+
+      const result = res.data?.data
+
+      if (!result.updated) {
+        toast.error("Bio Does Not Changed")
+        return
+      }
+
+      toast.success("Updated", "Bio updated successfully")
+
+      setDoctor((prev) => ({
+        ...prev,
+        bio: newBio
+      }))
+
+      setEditingBio(false)
+
+    } catch (err) {
+      console.error(err)
+      toast.error("Error", "Failed to update bio")
+    }
   }
 
   const addAvailability = async () => {
@@ -72,26 +120,26 @@ const [loadingPatients, setLoadingPatients] = useState(true)
   }
 
   const getPatients = async (id) => {
-  try {
-    const token = localStorage.getItem("token")
+    try {
+      const token = localStorage.getItem("token")
 
-    const res = await axios.get(
-      `http://localhost:8082/api/doctors/${id}/appointed-patients`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const res = await axios.get(
+        `http://localhost:8082/api/doctors/${id}/appointed-patients`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
-      }
-    )
+      )
 
-    setPatients(res.data?.data || [])
+      setPatients(res.data?.data || [])
 
-  } catch (err) {
-    console.error(err)
-  } finally {
-    setLoadingPatients(false)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingPatients(false)
+    }
   }
-}
 
   const id = localStorage.getItem("id")
 
@@ -104,7 +152,6 @@ const [loadingPatients, setLoadingPatients] = useState(true)
       console.log("FULL RESPONSE:", res)
       console.log("DATA:", res.data)
 
-      // 👇 جرب الاتنين دول
       const doctorData = res.data?.data || res.data
 
       setDoctor(doctorData)
@@ -116,12 +163,12 @@ const [loadingPatients, setLoadingPatients] = useState(true)
     }
   }
 
-useEffect(() => {
-  if (id) {
-    getUser(id)
-    getPatients(id)
-  }
-}, [id])
+  useEffect(() => {
+    if (id) {
+      getUser(id)
+      getPatients(id)
+    }
+  }, [id])
 
   return (
     <Container className="py-10 animate-[fadeIn_260ms_ease-out]">
@@ -170,10 +217,55 @@ useEffect(() => {
             {/* DOCTOR INFO */}
             <div className="mt-5 space-y-2 text-sm text-slate-700">
 
-              <p>
-                <span className="font-semibold">Bio:</span>{" "}
-                {doctor.bio || "No bio"}
-              </p>
+              <div>
+                <span className="font-semibold">Bio:</span>
+
+                {!editingBio ? (
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-sm text-slate-700">
+                      {doctor.bio || "No bio"}
+                    </p>
+
+                    <button
+                      onClick={handleEditClick}
+                      disabled={!canUpdateBio}
+                      className={`text-xs ${canUpdateBio
+                          ? "text-violet-600 hover:underline"
+                          : "text-gray-400 cursor-not-allowed"
+                        }`}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-2 space-y-2">
+
+                    <textarea
+                      value={newBio}
+                      onChange={(e) => setNewBio(e.target.value)}
+                      className="w-full border rounded-lg p-2 text-sm"
+                      rows={3}
+                    />
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={updateBio}
+                        className="px-3 py-1 bg-violet-600 text-white text-xs rounded"
+                      >
+                        Save
+                      </button>
+
+                      <button
+                        onClick={() => setEditingBio(false)}
+                        className="px-3 py-1 bg-gray-300 text-xs rounded"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                  </div>
+                )}
+              </div>
 
               <p>
                 <span className="font-semibold">Specialization:</span>{" "}
@@ -213,7 +305,7 @@ useEffect(() => {
             </div>
 
             {/* ADD AVAILABILITY */}
-<div className="mt-6">
+            <div className="mt-6">
               <h3 className="text-lg font-semibold text-slate-900 mb-4">
                 Add Availability
               </h3>
@@ -283,49 +375,49 @@ useEffect(() => {
             </div>
 
             {/* APPOINTED PATIENTS */}
-<div className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+            <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
 
-  <h3 className="text-lg font-semibold text-slate-900 mb-4">
-    Appointed Patients
-  </h3>
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                Appointed Patients
+              </h3>
 
-  {loadingPatients ? (
-    <Spinner label="Loading patients..." />
-  ) : patients.length === 0 ? (
-    <p className="text-sm text-gray-400">
-      No patients yet
-    </p>
-  ) : (
-    <div className="space-y-3">
+              {loadingPatients ? (
+                <Spinner label="Loading patients..." />
+              ) : patients.length === 0 ? (
+                <p className="text-sm text-gray-400">
+                  No patients yet
+                </p>
+              ) : (
+                <div className="space-y-3">
 
-      {patients.map((p, i) => (
-        <div
-          key={i}
-          className="flex justify-between items-center p-3 rounded-xl bg-slate-50"
-        >
+                  {patients.map((p, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-between items-center p-3 rounded-xl bg-slate-50"
+                    >
 
-          <div>
-            <p className="font-medium text-slate-900">
-              {p.username || "Patient"}
-            </p>
+                      <div>
+                        <p className="font-medium text-slate-900">
+                          {p.username || "Patient"}
+                        </p>
 
-            <p className="text-xs text-gray-500">
-              {p.email}
-            </p>
-          </div>
+                        <p className="text-xs text-gray-500">
+                          {p.email}
+                        </p>
+                      </div>
 
-          {p.date && (
-            <span className="text-xs text-violet-600">
-              {p.date}
-            </span>
-          )}
+                      {p.date && (
+                        <span className="text-xs text-violet-600">
+                          {p.date}
+                        </span>
+                      )}
 
-        </div>
-      ))}
+                    </div>
+                  ))}
 
-    </div>
-  )}
-</div>
+                </div>
+              )}
+            </div>
 
           </div>
         )}
